@@ -1,11 +1,15 @@
 import { GoogleGenAI, Modality, Type } from "@google/genai";
 import { AIPanelData, Comic, Panel } from '../types';
 
-if (!process.env.API_KEY) {
-    console.warn("API_KEY environment variable is not set. Using a placeholder key.");
+// Warn if the key is missing
+if (!import.meta.env.VITE_GEMINI_API_KEY) {
+  console.warn("VITE_GEMINI_API_KEY is not set. Using a placeholder key.");
 }
 
-const ai = new GoogleGenAI({apiKey: process.env.API_KEY || 'YOUR_API_KEY_HERE' });
+// Initialize the SDK with the key Vite injects at build time
+const ai = new GoogleGenAI({
+  apiKey: import.meta.env.VITE_GEMINI_API_KEY || "YOUR_API_KEY_HERE",
+});
 
 const panelSchema = {
     type: Type.OBJECT,
