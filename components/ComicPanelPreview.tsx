@@ -12,8 +12,8 @@ const ComicPanelPreview: React.FC<ComicPanelPreviewProps> = ({ panel, panelNumbe
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden flex flex-col h-full border border-gray-200 dark:border-gray-700">
       {panel.imageUrl && panel.imageMimeType ? (
         <img
-          src={`data:${panel.imageMimeType};base64,${panel.imageUrl}`}
-          alt={panel.visualDescription}
+  				src={`data:image/png;base64,${panelImage.base64Data}`}
+  				alt="Generated comic panel"
           className="w-full h-64 object-cover"
         />
       ) : (
