@@ -107,7 +107,7 @@ ${charactersInPanel || "No dialogue."}
 
   try {
     const response = await fetch(
-  "https://<your-site-name>.netlify.app/.netlify/functions/hf-proxy",
+  "https://comicbuilder.netlify.app/.netlify/functions/hf-proxy",
   {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -145,7 +145,7 @@ Perform the following edit: ${editPrompt}.
 
   try {
     const response = await fetch(
-  "https://<your-site-name>.netlify.app/.netlify/functions/hf-proxy",
+  "https://comicbuilder.netlify.app/.netlify/functions/hf-proxy",
   {
     method: "POST",
     headers: { "Content-Type": "application/json" },
