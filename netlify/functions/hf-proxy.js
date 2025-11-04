@@ -15,9 +15,9 @@ export async function handler(event) {
   try {
     const { prompt } = JSON.parse(event.body || "{}");
 
-    // Use the standard Hugging Face Inference API endpoint
+    // Use Stable Diffusion XL - it's available and generates better quality images
     const response = await fetch(
-      "https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-3-medium",
+      "https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0",
       {
         method: "POST",
         headers: {
@@ -37,6 +37,17 @@ export async function handler(event) {
     if (!response.ok) {
       const errorText = await response.text();
       console.error("HF API error:", response.status, errorText);
+      
+      // Provide helpful error messages
+      let errorMessage = "Hugging Face API error";
+      if (response.status === 503) {
+        errorMessage = "Model is loading. Please try again in 20-30 seconds.";
+      } else if (response.status === 401) {
+        errorMessage = "Invalid API token. Check your HUGGINGFACE_TOKEN environment variable.";
+      } else if (response.status === 429) {
+        errorMessage = "Rate limit exceeded. Please wait a moment before trying again.";
+      }
+      
       return {
         statusCode: response.status,
         headers: {
@@ -44,7 +55,7 @@ export async function handler(event) {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ 
-          error: "Hugging Face API error", 
+          error: errorMessage, 
           status: response.status,
           details: errorText 
         }),
