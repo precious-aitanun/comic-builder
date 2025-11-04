@@ -107,16 +107,13 @@ ${charactersInPanel || "No dialogue."}
 
   try {
     const response = await fetch(
-      "https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-3-medium",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${import.meta.env.VITE_HUGGINGFACE_TOKEN}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ inputs: prompt }),
-      }
-    );
+  "https://<your-site-name>.netlify.app/.netlify/functions/hf-proxy",
+  {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ prompt }),
+  }
+);
 
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
@@ -148,16 +145,13 @@ Perform the following edit: ${editPrompt}.
 
   try {
     const response = await fetch(
-      "https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-3-medium",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${import.meta.env.VITE_HUGGINGFACE_TOKEN}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ inputs: fullPrompt }),
-      }
-    );
+  "https://<your-site-name>.netlify.app/.netlify/functions/hf-proxy",
+  {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ prompt }),
+  }
+);
 
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
