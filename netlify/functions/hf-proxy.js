@@ -15,15 +15,22 @@ export async function handler(event) {
   try {
     const { prompt } = JSON.parse(event.body || "{}");
 
+    // Use the standard Hugging Face Inference API endpoint
     const response = await fetch(
-      "https://router.huggingface.co/hf-inference/models/stabilityai/stable-diffusion-3-medium",
+      "https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-3-medium",
       {
         method: "POST",
         headers: {
           Authorization: `Bearer ${process.env.HUGGINGFACE_TOKEN}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ inputs: prompt }),
+        body: JSON.stringify({ 
+          inputs: prompt,
+          options: {
+            use_cache: false,
+            wait_for_model: true
+          }
+        }),
       }
     );
 
@@ -34,6 +41,7 @@ export async function handler(event) {
         statusCode: response.status,
         headers: {
           "Access-Control-Allow-Origin": "*",
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({ 
           error: "Hugging Face API error", 
@@ -43,25 +51,9 @@ export async function handler(event) {
       };
     }
 
-    // Parse the JSON response from Hugging Face router
-    const data = await response.json();
-    
-    // Extract base64 image from the new router format: artifacts[0].base64
-    if (!data.artifacts || !data.artifacts[0] || !data.artifacts[0].base64) {
-      console.error("Unexpected HF response format:", data);
-      return {
-        statusCode: 500,
-        headers: {
-          "Access-Control-Allow-Origin": "*",
-        },
-        body: JSON.stringify({ 
-          error: "Invalid response format from Hugging Face", 
-          details: "Missing artifacts[0].base64 field" 
-        }),
-      };
-    }
-
-    const base64Image = data.artifacts[0].base64;
+    // The standard API returns raw image bytes
+    const arrayBuffer = await response.arrayBuffer();
+    const base64Image = Buffer.from(arrayBuffer).toString('base64');
 
     return {
       statusCode: 200,
@@ -72,7 +64,7 @@ export async function handler(event) {
         "Content-Type": "text/plain",
       },
       body: base64Image,
-      isBase64Encoded: false, // We're returning the base64 string as text, not binary
+      isBase64Encoded: false,
     };
   } catch (err) {
     console.error("Proxy error:", err);
@@ -80,6 +72,7 @@ export async function handler(event) {
       statusCode: 500,
       headers: {
         "Access-Control-Allow-Origin": "*",
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({ error: "Proxy error", details: err.message }),
     };
