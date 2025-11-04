@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Panel, DialogueLine, Comic, AIPanelData } from '../types';
 import { TrashIcon, SparklesIcon, PencilIcon } from './Icons';
-import { regeneratePanelField, generateImage, editImage } from '../services/geminiService';
+import { regeneratePanelField } from '../services/geminiService';
+import { generateImagePromptForPanel, generateEditedImagePromptForPanel } from '../utils/helpers';
+
 
 interface PanelFormProps {
     panelNumber: number;
@@ -13,9 +15,7 @@ interface PanelFormProps {
 const PanelForm: React.FC<PanelFormProps> = ({ panelNumber, initialData, onSave, comic }) => {
     const [panel, setPanel] = useState<Panel>(initialData);
     const [regeneratingField, setRegeneratingField] = useState<string | null>(null);
-    const [imageLoading, setImageLoading] = useState(false);
-    const [imageError, setImageError] = useState<string | null>(null);
-    const [editPrompt, setEditPrompt] = useState('');
+    const [editInstruction, setEditInstruction] = useState('');
 
 
     useEffect(() => {
@@ -60,45 +60,28 @@ const PanelForm: React.FC<PanelFormProps> = ({ panelNumber, initialData, onSave,
         }
     };
 
-    const handleGenerateImage = async () => {
-        setImageLoading(true);
-        setImageError(null);
-        try {
-            const result = await generateImage(panel, comic);
-            if (result) {
-                handleSave({ ...panel, imageUrl: result.base64Data, imageMimeType: result.mimeType });
-            } else {
-                setImageError("Failed to generate image. The result was empty.");
-            }
-        } catch (err) {
-            setImageError("An error occurred while generating the image.");
-            console.error(err);
-        } finally {
-            setImageLoading(false);
-        }
+    const handleGeneratePrompt = () => {
+        const prompt = generateImagePromptForPanel(panel);
+        handleSave({ ...panel, imageGenerationPrompt: prompt });
     };
     
-    const handleEditImage = async () => {
-        if (!panel.imageUrl || !panel.imageMimeType || !editPrompt) {
-            setImageError("An image must be generated and an edit prompt provided.");
+    const handleEditPrompt = () => {
+        if (!panel.imageGenerationPrompt || !editInstruction) {
+            alert("A prompt must be generated and an edit instruction provided.");
             return;
         }
-        setImageLoading(true);
-        setImageError(null);
-        try {
-            const result = await editImage(panel.imageUrl, panel.imageMimeType, editPrompt);
-             if (result) {
-                handleSave({ ...panel, imageUrl: result.base64Data, imageMimeType: result.mimeType });
-                setEditPrompt('');
-            } else {
-                setImageError("Failed to edit image. The result was empty.");
-            }
-        } catch (err) {
-            setImageError("An error occurred while editing the image.");
-            console.error(err);
-        } finally {
-            setImageLoading(false);
-        }
+        const newPrompt = generateEditedImagePromptForPanel(panel.imageGenerationPrompt, editInstruction);
+        handleSave({ ...panel, imageGenerationPrompt: newPrompt });
+        setEditInstruction('');
+    };
+
+    const copyToClipboard = (text: string) => {
+        navigator.clipboard.writeText(text).then(() => {
+            alert('Prompt copied to clipboard!');
+        }, (err) => {
+            console.error('Could not copy text: ', err);
+            alert('Failed to copy prompt.');
+        });
     };
 
     const FormTextArea: React.FC<{label: string, field: keyof Omit<AIPanelData, 'dialogue'>, rows?: number, placeholder?: string}> = ({label, field, rows=2, placeholder=""}) => (
@@ -129,48 +112,49 @@ const PanelForm: React.FC<PanelFormProps> = ({ panelNumber, initialData, onSave,
         <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md mb-6 border border-gray-200 dark:border-gray-700">
             <h4 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Panel {panelNumber}</h4>
             
-            {/* Image Section */}
+            {/* Image Prompt Section */}
             <div className="mb-6 p-4 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800/50">
-                 {panel.imageUrl && panel.imageMimeType ? (
-                    <img
-                        src={`data:${panel.imageMimeType};base64,${panel.imageUrl}`}
-                        alt={panel.visualDescription}
-                        className="rounded-lg w-full object-contain max-h-96"
-                    />
+                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Image Generation Prompt</label>
+                 {panel.imageGenerationPrompt ? (
+                    <div className="relative">
+                        <textarea
+                            readOnly
+                            value={panel.imageGenerationPrompt}
+                            className="w-full h-48 bg-gray-100 dark:bg-gray-700 rounded-lg p-3 text-sm font-mono text-gray-800 dark:text-gray-200 border border-gray-300 dark:border-gray-600"
+                        />
+                        <button onClick={() => copyToClipboard(panel.imageGenerationPrompt || '')} className="absolute top-2 right-2 px-2 py-1 text-xs bg-gray-200 dark:bg-gray-600 rounded hover:bg-gray-300 dark:hover:bg-gray-500">Copy</button>
+                    </div>
                 ) : (
-                    <div className="w-full h-48 bg-gray-100 dark:bg-gray-700 flex items-center justify-center rounded-lg">
-                        <p className="text-gray-500">Image will be generated here</p>
+                    <div className="w-full h-32 bg-gray-100 dark:bg-gray-700 flex items-center justify-center rounded-lg">
+                        <p className="text-gray-500">Click "Generate Prompt" to create an image prompt.</p>
                     </div>
                 )}
-                 {imageLoading && <div className="mt-4 text-center text-gray-600 dark:text-gray-400">AI is drawing... Please wait.</div>}
-                 {imageError && <div className="mt-4 text-center text-red-500">{imageError}</div>}
                  <div className="mt-4 flex flex-col sm:flex-row gap-2">
                     <button
                         type="button"
-                        onClick={handleGenerateImage}
-                        disabled={imageLoading}
-                        className="flex-grow inline-flex items-center justify-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:bg-gray-400 dark:disabled:bg-gray-600"
+                        onClick={handleGeneratePrompt}
+                        className="flex-grow inline-flex items-center justify-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
                     >
                         <SparklesIcon />
-                        <span className="ml-2">{panel.imageUrl ? 'Re-generate Image' : 'Generate Panel Image'}</span>
+                        <span className="ml-2">{panel.imageGenerationPrompt ? 'Re-generate Prompt' : 'Generate Image Prompt'}</span>
                     </button>
-                    {panel.imageUrl && (
+                    {panel.imageGenerationPrompt && (
                         <div className="flex-grow flex space-x-2">
                             <input
                                 type="text"
-                                value={editPrompt}
-                                onChange={(e) => setEditPrompt(e.target.value)}
+                                value={editInstruction}
+                                onChange={(e) => setEditInstruction(e.target.value)}
                                 placeholder="e.g., Make the background darker..."
                                 className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 text-gray-900 dark:text-gray-100"
                             />
                             <button
                                 type="button"
-                                onClick={handleEditImage}
-                                disabled={imageLoading || !editPrompt}
+                                onClick={handleEditPrompt}
+                                disabled={!editInstruction}
                                 className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-gray-400 dark:disabled:bg-gray-600"
                             >
                                 <PencilIcon />
-                                <span className="ml-2">Edit</span>
+                                <span className="ml-2">Edit Prompt</span>
                             </button>
                         </div>
                     )}

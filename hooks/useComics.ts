@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Comic } from '../types';
 import { getComics, saveComics } from '../services/storageService';
 import { generateUUID } from '../utils/helpers';
+import { generateStyleGuidePrompt } from '../services/geminiService';
 
 export const useComics = () => {
   const [comics, setComics] = useState<Comic[]>([]);
@@ -18,10 +19,13 @@ export const useComics = () => {
     saveComics(newComics);
   };
 
-  const addComic = (newComicData: Omit<Comic, 'id' | 'storyState' | 'panels' | 'progress' | 'createdAt'>, initialExcerpt: string) => {
+  const addComic = async (newComicData: Omit<Comic, 'id' | 'storyState' | 'panels' | 'progress' | 'createdAt' | 'styleGuidePrompt'>, initialExcerpt: string) => {
+    const styleGuidePrompt = await generateStyleGuidePrompt(newComicData);
+
     const newComic: Comic = {
       ...newComicData,
       id: generateUUID(),
+      styleGuidePrompt,
       storyState: {
         lastPanelSummary: initialExcerpt.substring(0, 100) + '...',
         completedExcerpts: 0,

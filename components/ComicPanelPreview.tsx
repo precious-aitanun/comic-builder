@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Panel } from '../types';
 
@@ -10,17 +9,6 @@ interface ComicPanelPreviewProps {
 const ComicPanelPreview: React.FC<ComicPanelPreviewProps> = ({ panel, panelNumber }) => {
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden flex flex-col h-full border border-gray-200 dark:border-gray-700">
-      {panel.imageUrl && panel.imageMimeType ? (
-        <img
-  				src={`data:image/png;base64,${panelImage.base64Data}`}
-  				alt="Generated comic panel"
-          className="w-full h-64 object-cover"
-        />
-      ) : (
-        <div className="w-full h-64 bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
-          <p className="text-gray-500">No Image Generated</p>
-        </div>
-      )}
       <div className="p-6 flex-grow flex flex-col">
         <h3 className="font-bold text-lg text-gray-900 dark:text-white">Panel {panelNumber}</h3>
         

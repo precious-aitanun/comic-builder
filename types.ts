@@ -18,8 +18,7 @@ export interface Panel {
   caption: string;
   dialogue: DialogueLine[];
   suggestions: string;
-  imageUrl?: string; // base64 string data only
-  imageMimeType?: string;
+  imageGenerationPrompt?: string;
 }
 
 export interface StoryState {
@@ -33,6 +32,7 @@ export interface Comic {
   topic: string;
   ward: string;
   characters: Character[];
+  styleGuidePrompt: string;
   storyState: StoryState;
   panels: Panel[];
   progress: number;
@@ -41,4 +41,4 @@ export interface Comic {
 
 export type View = 'dashboard' | 'library' | 'builder';
 
-export type AIPanelData = Omit<Panel, 'id' | 'imageUrl' | 'imageMimeType'>;
+export type AIPanelData = Omit<Panel, 'id' | 'imageGenerationPrompt'>;

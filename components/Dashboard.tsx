@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Character } from '../types';
 import { PREDEFINED_CHARACTERS } from '../constants/characters';
@@ -8,10 +7,10 @@ interface DashboardProps {
   onStartComic: (
     newComicData: Omit<
       import('../types').Comic,
-      'id' | 'storyState' | 'panels' | 'progress' | 'createdAt'
+      'id' | 'storyState' | 'panels' | 'progress' | 'createdAt' | 'styleGuidePrompt'
     >,
     initialExcerpt: string
-  ) => void;
+  ) => Promise<void>;
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ onStartComic }) => {
@@ -23,6 +22,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onStartComic }) => {
   
   const [newCharName, setNewCharName] = useState('');
   const [newCharDesc, setNewCharDesc] = useState('');
+  const [isCreating, setIsCreating] = useState(false);
 
   const handleAddCharacter = (char: Character) => {
     if (char.name && !characters.some(c => c.name === char.name)) {
@@ -42,13 +42,21 @@ const Dashboard: React.FC<DashboardProps> = ({ onStartComic }) => {
     setCharacters(characters.filter(c => c.name !== charName));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!subject || !topic || !ward || characters.length < 1 || !initialExcerpt) {
       alert('Please fill in all fields to start a new comic.');
       return;
     }
-    onStartComic({ subject, topic, ward, characters }, initialExcerpt);
+    setIsCreating(true);
+    try {
+        await onStartComic({ subject, topic, ward, characters }, initialExcerpt);
+    } catch (error) {
+        console.error("Failed to start comic:", error);
+        alert("Failed to generate the comic's style guide. Please check the console for errors and try again.");
+    } finally {
+        setIsCreating(false);
+    }
   };
 
   const availableChars = PREDEFINED_CHARACTERS.filter(pc => !characters.some(c => c.name === pc.name));
@@ -138,9 +146,10 @@ const Dashboard: React.FC<DashboardProps> = ({ onStartComic }) => {
           <div className="flex justify-end">
             <button
               type="submit"
-              className="w-full md:w-auto inline-flex justify-center py-3 px-8 border border-transparent shadow-sm text-base font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+              disabled={isCreating}
+              className="w-full md:w-auto inline-flex justify-center py-3 px-8 border border-transparent shadow-sm text-base font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:bg-gray-400 dark:disabled:bg-gray-600"
             >
-              Start Building Comic
+              {isCreating ? 'Generating Style Guide...' : 'Start Building Comic'}
             </button>
           </div>
         </div>

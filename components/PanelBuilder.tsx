@@ -1,10 +1,10 @@
-
 import React, { useState } from 'react';
 import { Comic, Panel } from '../types';
 import PanelForm from './PanelForm';
 import { generateUUID, downloadFile, comicToMarkdown } from '../utils/helpers';
 import { ArrowLeftIcon, DownloadIcon, SparklesIcon } from './Icons';
 import { generateStoryPanels } from '../services/geminiService';
+import ComicPanelPreview from './ComicPanelPreview';
 
 interface PanelBuilderProps {
   comic: Comic;
@@ -113,7 +113,24 @@ const PanelBuilder: React.FC<PanelBuilderProps> = ({ comic, onUpdateComic, onBac
             <h4 className="font-semibold text-gray-800 dark:text-gray-200">Story Context</h4>
             <p className="text-sm text-gray-600 dark:text-gray-300 mt-1 italic">"{comic.storyState.lastPanelSummary}"</p>
         </div>
+         <div className="mt-4 bg-gray-100 dark:bg-gray-700/50 p-4 rounded-md">
+            <details>
+                <summary className="font-semibold text-gray-800 dark:text-gray-200 cursor-pointer">View Style Guide Prompt</summary>
+                <textarea readOnly className="mt-2 w-full h-48 bg-gray-50 dark:bg-gray-800 p-2 text-xs font-mono rounded-md border border-gray-200 dark:border-gray-600">{comic.styleGuidePrompt}</textarea>
+            </details>
+        </div>
       </div>
+
+      {comic.panels.length > 0 && (
+        <div className="mb-8">
+            <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Saved Panels</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {comic.panels.map((panel, index) => (
+                    <ComicPanelPreview key={panel.id} panel={panel} panelNumber={index + 1} />
+                ))}
+            </div>
+        </div>
+      )}
 
       <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
         <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Add New Excerpt</h3>

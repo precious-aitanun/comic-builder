@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useComics } from './hooks/useComics';
 import { Comic, View } from './types';
@@ -35,8 +34,8 @@ function App() {
     });
   };
 
-  const handleStartComic = (newComicData: Omit<Comic, 'id' | 'storyState' | 'panels' | 'progress' | 'createdAt'>, initialExcerpt: string) => {
-    const newComic = addComic(newComicData, initialExcerpt);
+  const handleStartComic = async (newComicData: Omit<Comic, 'id' | 'storyState' | 'panels' | 'progress' | 'createdAt' | 'styleGuidePrompt'>, initialExcerpt: string) => {
+    const newComic = await addComic(newComicData, initialExcerpt);
     setCurrentComicId(newComic.id);
     setCurrentView('builder');
   };

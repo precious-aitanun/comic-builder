@@ -1,15 +1,11 @@
-import { GoogleGenAI, Modality, Type } from "@google/genai";
+import { GoogleGenAI, Type } from "@google/genai";
 import { AIPanelData, Comic, Panel } from '../types';
 
-// Warn if the key is missing
-if (!import.meta.env.VITE_GEMINI_API_KEY) {
-  console.warn("VITE_GEMINI_API_KEY is not set. Using a placeholder key.");
+if (!process.env.API_KEY) {
+    console.warn("API_KEY environment variable is not set. Using a placeholder key.");
 }
 
-// Initialize the SDK with the key Vite injects at build time
-const ai = new GoogleGenAI({
-  apiKey: import.meta.env.VITE_GEMINI_API_KEY || "YOUR_API_KEY_HERE",
-});
+const ai = new GoogleGenAI({apiKey: process.env.API_KEY || 'YOUR_API_KEY_HERE' });
 
 const panelSchema = {
     type: Type.OBJECT,
@@ -85,85 +81,40 @@ export const generateStoryPanels = async (comic: Comic, excerpt: string): Promis
     }
 };
 
-const getCharacterListFromPanel = (panel: Panel, comic: Comic) => {
-    const characterNames = new Set(panel.dialogue.map(d => d.character));
-    return comic.characters.filter(c => characterNames.has(c.name));
-}
+export const generateStyleGuidePrompt = async (comicData: Omit<Comic, 'id' | 'storyState' | 'panels' | 'progress' | 'createdAt' | 'styleGuidePrompt'>): Promise<string> => {
+    const model = 'gemini-2.5-pro';
+    const instruction = `
+You are an expert comic book artist and prompt engineer. Your task is to create a detailed "Style Guide Prompt" for an AI image generator (like Midjourney or DALL-E) to ensure a consistent visual style for a new medical drama comic series.
 
-export const generateImage = async (panel, comic) => {
-  const charactersInPanel = panel.dialogue.map(d => `${d.character}: "${d.line}"`).join('\n');
+The style should be a modern, clean-lined comic book aesthetic, balanced with a touch of realism suitable for a medical drama. The setting is Zenith Teaching Hospital in Lagos, Nigeria.
 
-  const prompt = `
-A comic book panel illustration in a modern medical drama style set in Lagos, Nigeria.
-All characters are Nigerian (Black African).
----
-Visual Description: ${panel.visualDescription}
-Characters in Panel: ${comic.characters.map(c => `${c.name} (${c.description})`).join(', ')}
-Action Taking Place: ${panel.action}
-Mood: ${panel.observation}
-Dialogue:
-${charactersInPanel || "No dialogue."}
-`;
+**IMPORTANT:** The core of this style guide is to ensure all characters are depicted as Nigerian (Black African). This must be a central, non-negotiable part of the prompt.
 
-  try {
-    const response = await fetch(
-  "https://comicbuilder.netlify.app/.netlify/functions/hf-proxy",
-  {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ prompt }),
-  }
-);
+Based on the following comic details, generate the Style Guide Prompt.
 
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+**Comic Details:**
+- **Subject:** ${comicData.subject}
+- **Topic:** ${comicData.topic}
+- **Ward/Setting:** ${comicData.ward}
+- **Characters:**
+${comicData.characters.map(c => `  - **${c.name}:** ${c.description}`).join('\n')}
 
-    const data = await response.text();
-return {
-  base64Data: data,
-  mimeType: "image/png",
-};
-  } catch (err) {
-    console.error("Error generating image:", err);
-    return null;
-  }
-};
+**Output Requirements:**
+The output should be a single block of text. This text will be used as a system instruction or a prefix for every image generation prompt in this comic series. It should include:
+1.  A core art style definition (e.g., "Modern medical drama comic style, clean lines, balanced colors...").
+2.  The mandatory instruction about character ethnicity ("All characters must be Nigerian, Black African...").
+3.  A section detailing the specific visual attributes for each character listed above. Be descriptive (e.g., "Dr. Adetunji is in his late 40s, with a kind face, salt-and-pepper hair, often seen with glasses perched on his nose...").
+4.  Guidance on the setting (e.g., "The hospital interiors should be clean, modern but busy, with signs of being a Nigerian public hospital...").
 
-// helper to convert blob to base64
-const blobToBase64 = (blob) =>
-  new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => resolve(reader.result.split(",")[1]);
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
+Generate only the style guide prompt text.
+    `;
 
-export const editImage = async (base64ImageData, mimeType, editPrompt) => {
-  const fullPrompt = `
-A comic book panel illustration in a modern medical drama style, set in a Lagos hospital.
-All characters are Nigerian (Black African).
-Perform the following edit: ${editPrompt}.
-`;
-
-  try {
-    const response = await fetch(
-  "https://comicbuilder.netlify.app/.netlify/functions/hf-proxy",
-  {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ prompt }),
-  }
-);
-
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
-    const blob = await response.blob();
-    const base64Data = await blobToBase64(blob);
-
-    return { base64Data, mimeType: blob.type };
-  } catch (err) {
-    console.error("Error editing image:", err);
-    return null;
-  }
+    const response = await ai.models.generateContent({
+        model,
+        contents: instruction,
+    });
+    
+    return response.text.trim();
 };
 
 export const regeneratePanelField = async (comic: Comic, panel: Panel, fieldToRegenerate: keyof Omit<AIPanelData, 'dialogue'>): Promise<string> => {
