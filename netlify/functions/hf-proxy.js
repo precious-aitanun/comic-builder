@@ -16,16 +16,16 @@ export async function handler(event) {
     const { prompt } = JSON.parse(event.body || "{}");
 
     const response = await fetch(
-      "https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-3-medium",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${process.env.HUGGINGFACE_TOKEN}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ inputs: prompt }),
-      }
-    );
+  "https://router.huggingface.co/hf-inference/models/stabilityai/stable-diffusion-3-medium",
+  {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${process.env.HUGGINGFACE_TOKEN}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ inputs: prompt }),
+  }
+);
 
     const buffer = await response.arrayBuffer();
 
