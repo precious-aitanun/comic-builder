@@ -1,0 +1,5 @@
+{
+  "name": "Zenith Comic Builder",
+  "description": "A local tool for creating serialized medical-education comics panel-by-panel, with AI-powered image generation and editing capabilities using Gemini.",
+  "requestFramePermissions": []
+}
