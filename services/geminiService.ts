@@ -1,11 +1,11 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { AIPanelData, Comic, Panel } from '../types';
 
-if (!process.env.API_KEY) {
+if (!import.meta.env.API_KEY) {
     console.warn("API_KEY environment variable is not set. Using a placeholder key.");
 }
 
-const ai = new GoogleGenAI({apiKey: process.env.API_KEY || 'YOUR_API_KEY_HERE' });
+const ai = new GoogleGenAI({apiKey: import.meta .env.API_KEY || 'YOUR_API_KEY_HERE' });
 
 const panelSchema = {
     type: Type.OBJECT,
