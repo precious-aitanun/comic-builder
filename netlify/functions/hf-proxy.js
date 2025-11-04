@@ -1,6 +1,19 @@
 export async function handler(event) {
+  // Handle the browser's preflight OPTIONS request
+  if (event.httpMethod === "OPTIONS") {
+    return {
+      statusCode: 200,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type",
+      },
+      body: "OK",
+    };
+  }
+
   try {
-    const { prompt } = JSON.parse(event.body);
+    const { prompt } = JSON.parse(event.body || "{}");
 
     const response = await fetch(
       "https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-3-medium",
@@ -21,6 +34,7 @@ export async function handler(event) {
       headers: {
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Headers": "Content-Type",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
       },
       body: Buffer.from(buffer).toString("base64"),
       isBase64Encoded: true,
@@ -29,7 +43,10 @@ export async function handler(event) {
     console.error("Proxy error:", err);
     return {
       statusCode: 500,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+      },
       body: JSON.stringify({ error: "Proxy error", details: err.message }),
     };
   }
-            }
+}
