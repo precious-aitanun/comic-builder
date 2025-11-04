@@ -90,69 +90,86 @@ const getCharacterListFromPanel = (panel: Panel, comic: Comic) => {
     return comic.characters.filter(c => characterNames.has(c.name));
 }
 
-export const generateImage = async (panel: Panel, comic: Comic): Promise<{ base64Data: string, mimeType: string } | null> => {
-    const model = 'gemini-2.5-flash-image';
-    
-    const charactersInPanel = getCharacterListFromPanel(panel, comic);
-    const dialogueLines = panel.dialogue.map(d => `- ${d.character}: "${d.line}"`).join('\n');
+export const generateImage = async (panel, comic) => {
+  const charactersInPanel = panel.dialogue.map(d => `${d.character}: "${d.line}"`).join('\n');
 
-    const prompt = `A comic book panel illustration in a modern medical drama style with clean lines and balanced colors. The setting is a hospital in Lagos, Nigeria.
+  const prompt = `
+A comic book panel illustration in a modern medical drama style set in Lagos, Nigeria.
+All characters are Nigerian (Black African).
 ---
-**IMPORTANT CULTURAL CONTEXT:** All characters depicted MUST be Nigerian (Black African).
----
-**Visual Description:** ${panel.visualDescription}
-**Characters in Panel & Description:** ${charactersInPanel.map(c => `${c.name} (${c.description})`).join(', ')}
-**Action Taking Place:** ${panel.action}
-**Overall Mood:** Based on the observation ("${panel.observation}") and reasoning ("${panel.reasoning}"), the mood should be tense/educational/calm/etc.
-**Dialogue to include in speech bubbles:**
-${dialogueLines || "No dialogue in this panel."}
----
-Generate the image for this complete panel context.`;
+Visual Description: ${panel.visualDescription}
+Characters in Panel: ${comic.characters.map(c => `${c.name} (${c.description})`).join(', ')}
+Action Taking Place: ${panel.action}
+Mood: ${panel.observation}
+Dialogue:
+${charactersInPanel || "No dialogue."}
+`;
 
-    const response = await ai.models.generateContent({
-        model,
-        contents: { parts: [{ text: prompt }] },
-        config: {
-            responseModalities: [Modality.IMAGE],
+  try {
+    const response = await fetch(
+      "https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-3-medium",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${import.meta.env.VITE_HUGGINGFACE_TOKEN}`,
+          "Content-Type": "application/json",
         },
-    });
+        body: JSON.stringify({ inputs: prompt }),
+      }
+    );
 
-    const part = response.candidates?.[0]?.content?.parts?.[0];
-    if (part?.inlineData) {
-        return {
-            base64Data: part.inlineData.data,
-            mimeType: part.inlineData.mimeType
-        };
-    }
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+    const blob = await response.blob();
+    const base64Data = await blobToBase64(blob);
+
+    return { base64Data, mimeType: blob.type };
+  } catch (err) {
+    console.error("Error generating image:", err);
     return null;
-}
+  }
+};
 
-export const editImage = async (base64ImageData: string, mimeType: string, editPrompt: string): Promise<{ base64Data: string, mimeType: string } | null> => {
-    const model = 'gemini-2.5-flash-image';
-    const fullPrompt = `In a modern medical drama comic book style, ensuring all characters remain Nigerian (Black African), perform the following edit: "${editPrompt}"`;
+// helper to convert blob to base64
+const blobToBase64 = (blob) =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result.split(",")[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
 
-    const response = await ai.models.generateContent({
-        model,
-        contents: {
-            parts: [
-                { inlineData: { data: base64ImageData, mimeType } },
-                { text: fullPrompt }
-            ]
+export const editImage = async (base64ImageData, mimeType, editPrompt) => {
+  const fullPrompt = `
+A comic book panel illustration in a modern medical drama style, set in a Lagos hospital.
+All characters are Nigerian (Black African).
+Perform the following edit: ${editPrompt}.
+`;
+
+  try {
+    const response = await fetch(
+      "https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-3-medium",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${import.meta.env.VITE_HUGGINGFACE_TOKEN}`,
+          "Content-Type": "application/json",
         },
-        config: {
-            responseModalities: [Modality.IMAGE],
-        }
-    });
+        body: JSON.stringify({ inputs: fullPrompt }),
+      }
+    );
 
-    const part = response.candidates?.[0]?.content?.parts?.[0];
-    if (part?.inlineData) {
-        return {
-            base64Data: part.inlineData.data,
-            mimeType: part.inlineData.mimeType
-        };
-    }
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+    const blob = await response.blob();
+    const base64Data = await blobToBase64(blob);
+
+    return { base64Data, mimeType: blob.type };
+  } catch (err) {
+    console.error("Error editing image:", err);
     return null;
-}
+  }
+};
 
 export const regeneratePanelField = async (comic: Comic, panel: Panel, fieldToRegenerate: keyof Omit<AIPanelData, 'dialogue'>): Promise<string> => {
     const model = 'gemini-2.5-flash';
