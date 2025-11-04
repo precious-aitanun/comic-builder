@@ -117,10 +117,11 @@ ${charactersInPanel || "No dialogue."}
 
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
-    const blob = await response.blob();
-    const base64Data = await blobToBase64(blob);
-
-    return { base64Data, mimeType: blob.type };
+    const data = await response.text();
+return {
+  base64Data: data,
+  mimeType: "image/png",
+};
   } catch (err) {
     console.error("Error generating image:", err);
     return null;
