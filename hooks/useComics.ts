@@ -1,63 +1,64 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Comic } from '../types';
-import { getComics, saveComics } from '../services/storageService';
+import { Episode } from '../types';
+import { getEpisodes, saveEpisodes } from '../services/storageService';
 import { generateUUID } from '../utils/helpers';
-import { generateStyleGuidePrompt } from '../services/geminiService';
 
-export const useComics = () => {
-  const [comics, setComics] = useState<Comic[]>([]);
+export const useEpisodes = () => {
+  const [episodes, setEpisodes] = useState<Episode[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const loadedComics = getComics();
-    setComics(loadedComics);
+    const loadedEpisodes = getEpisodes();
+    setEpisodes(loadedEpisodes);
     setLoading(false);
   }, []);
 
-  const updateAndSave = (newComics: Comic[]) => {
-    setComics(newComics);
-    saveComics(newComics);
+  const updateAndSave = (newEpisodes: Episode[]) => {
+    // Sort by episode number before saving
+    const sortedEpisodes = [...newEpisodes].sort((a, b) => a.episodeNumber - b.episodeNumber);
+    setEpisodes(sortedEpisodes);
+    saveEpisodes(sortedEpisodes);
   };
 
-  const addComic = async (newComicData: Omit<Comic, 'id' | 'storyState' | 'panels' | 'progress' | 'createdAt' | 'styleGuidePrompt'>, initialExcerpt: string) => {
-    const styleGuidePrompt = await generateStyleGuidePrompt(newComicData);
-
-    const newComic: Comic = {
-      ...newComicData,
+  const addEpisode = (topic: string, textbookContent: string, creativeDirection: string): Episode => {
+    const newEpisode: Episode = {
       id: generateUUID(),
-      styleGuidePrompt,
-      storyState: {
-        lastPanelSummary: initialExcerpt.substring(0, 100) + '...',
-        completedExcerpts: 0,
-      },
-      panels: [],
-      progress: 0,
+      episodeNumber: (episodes[episodes.length - 1]?.episodeNumber || 0) + 1,
+      topic,
+      textbookContent,
       createdAt: new Date().toISOString(),
+      generationPhase: 'start',
+      history: [],
     };
-    const updatedComics = [...comics, newComic];
-    updateAndSave(updatedComics);
-    return newComic;
+    const updatedEpisodes = [...episodes, newEpisode];
+    updateAndSave(updatedEpisodes);
+    return newEpisode;
   };
 
-  const updateComic = (updatedComic: Comic) => {
-    const updatedComics = comics.map(c => (c.id === updatedComic.id ? updatedComic : c));
-    updateAndSave(updatedComics);
+  const updateEpisode = (updatedEpisode: Episode) => {
+    const updatedEpisodes = episodes.map(c => (c.id === updatedEpisode.id ? updatedEpisode : c));
+    updateAndSave(updatedEpisodes);
   };
 
-  const deleteComic = (comicId: string) => {
-    const updatedComics = comics.filter(c => c.id !== comicId);
-    updateAndSave(updatedComics);
+  const deleteEpisode = (episodeId: string) => {
+    if (!window.confirm("Are you sure you want to delete this episode? This action cannot be undone.")) {
+      return;
+    }
+    const updatedEpisodes = episodes.filter(c => c.id !== episodeId);
+    updateAndSave(updatedEpisodes);
   };
   
-  const getComicById = useCallback((id: string | null) => {
+  const getEpisodeById = useCallback((id: string | null) => {
     if (!id) return undefined;
-    return comics.find(c => c.id === id);
-  }, [comics]);
+    return episodes.find(c => c.id === id);
+  }, [episodes]);
 
 
-  const clearAllComics = () => {
-    updateAndSave([]);
+  const clearAllEpisodes = () => {
+    if (window.confirm('Are you sure you want to delete ALL episode data? This action cannot be undone.')) {
+        updateAndSave([]);
+    }
   }
 
-  return { comics, loading, addComic, updateComic, deleteComic, getComicById, clearAllComics };
+  return { episodes, loading, addEpisode, updateEpisode, deleteEpisode, getEpisodeById, clearAllEpisodes };
 };

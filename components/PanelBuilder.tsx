@@ -1,191 +1,202 @@
-import React, { useState } from 'react';
-import { Comic, Panel } from '../types';
-import PanelForm from './PanelForm';
-import { generateUUID, downloadFile, comicToMarkdown } from '../utils/helpers';
-import { ArrowLeftIcon, DownloadIcon, SparklesIcon } from './Icons';
-import { generateStoryPanels } from '../services/geminiService';
-import ComicPanelPreview from './ComicPanelPreview';
+import React, { useState, useEffect, useRef } from 'react';
+import { Episode } from '../types';
+import { ArrowLeftIcon, SparklesIcon } from './Icons';
+import { continueEpisodeGeneration } from '../services/geminiService';
+import { downloadFile } from '../utils/helpers';
 
-interface PanelBuilderProps {
-  comic: Comic;
-  onUpdateComic: (updatedComic: Comic) => void;
+interface EpisodeBuilderProps {
+  episode: Episode;
+  onUpdateEpisode: (updatedEpisode: Episode) => void;
   onBackToLibrary: () => void;
 }
 
-const PanelBuilder: React.FC<PanelBuilderProps> = ({ comic, onUpdateComic, onBackToLibrary }) => {
-  const [currentExcerpt, setCurrentExcerpt] = useState('');
-  const [draftPanels, setDraftPanels] = useState<Panel[]>([]);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+const LoadingIndicator: React.FC<{ text: string }> = ({ text }) => (
+    <div className="flex flex-col items-center justify-center p-8 bg-gray-100 dark:bg-gray-800/50 rounded-lg">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500"></div>
+        <p className="mt-4 text-lg font-semibold text-gray-700 dark:text-gray-300">{text}</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400">This may take a moment...</p>
+    </div>
+);
 
-  const handleGeneratePanels = async () => {
-    if (!currentExcerpt) {
-        setError("Please enter an excerpt first.");
-        return;
-    }
-    setIsGenerating(true);
-    setError(null);
-    setDraftPanels([]);
+const EpisodeBuilder: React.FC<EpisodeBuilderProps> = ({ episode, onUpdateEpisode, onBackToLibrary }) => {
+    const [userInput, setUserInput] = useState('');
+    const [error, setError] = useState<string | null>(null);
+    const bottomRef = useRef<HTMLDivElement>(null);
 
-    try {
-        const aiPanels = await generateStoryPanels(comic, currentExcerpt);
-        const newDrafts: Panel[] = aiPanels.map(p => ({
-            ...p,
-            id: generateUUID(),
-        }));
-        setDraftPanels(newDrafts);
-    } catch (err) {
-        setError(err instanceof Error ? err.message : "An unknown error occurred.");
-    } finally {
-        setIsGenerating(false);
-    }
-  };
+    const scrollToBottom = () => {
+        bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    };
 
-  const handleSavePanel = (panelData: Panel) => {
-    setDraftPanels(prev => prev.map(p => p.id === panelData.id ? panelData : p));
-  };
-  
-  const handleFinishExcerpt = () => {
-      // Basic validation
-      if (draftPanels.some(p => !p.visualDescription)) {
-          alert('Please fill at least the Visual Description for all panels.');
-          return;
-      }
+    useEffect(() => {
+        scrollToBottom();
+    }, [episode.history]);
 
-      const updatedPanels = [...comic.panels, ...draftPanels];
-      const newProgress = Math.min(100, comic.panels.length > 0 ? (updatedPanels.length / (comic.panels.length * 1.5)) * 100 : 10);
+    const handleInitialGeneration = async () => {
+        const initialPrompt = `
+EPISODE REQUEST
 
-      const lastPanel = draftPanels[draftPanels.length - 1];
-      const newSummary = lastPanel?.caption || lastPanel?.dialogue?.[0]?.line || lastPanel?.observation || comic.storyState.lastPanelSummary;
+Episode Number: ${episode.episodeNumber}
+Topic: ${episode.topic}
 
-      const updatedComic: Comic = {
-          ...comic,
-          panels: updatedPanels,
-          progress: Math.round(newProgress),
-          storyState: {
-              ...comic.storyState,
-              lastPanelSummary: newSummary,
-              completedExcerpts: comic.storyState.completedExcerpts + 1
-          }
-      };
-      onUpdateComic(updatedComic);
-      
-      // Reset for next excerpt
-      setCurrentExcerpt('');
-      setDraftPanels([]);
-  }
+Textbook Content:
+---
+${episode.textbookContent}
+---
 
-  const handleExportJson = () => {
-    const jsonString = JSON.stringify(comic, null, 2);
-    downloadFile(jsonString, `${comic.topic.replace(/\s+/g, '_')}.json`, 'application/json');
-  }
+Generate story arc proposal first.
+`;
+        await advanceState('arc_proposal_pending', initialPrompt);
+    };
 
-  const handleExportMarkdown = () => {
-    const markdownString = comicToMarkdown(comic);
-    downloadFile(markdownString, `${comic.topic.replace(/\s+/g, '_')}.md`, 'text/markdown');
-  }
+    useEffect(() => {
+        if (episode.generationPhase === 'start' && episode.history.length === 0) {
+            handleInitialGeneration();
+        }
+    }, [episode]);
 
-  return (
-    <div className="max-w-7xl mx-auto p-8">
-        <div className="flex justify-between items-center mb-6">
-            <button onClick={onBackToLibrary} className="flex items-center text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400">
-                <ArrowLeftIcon />
-                <span className="ml-2">Back to Library</span>
-            </button>
-            <div className="flex items-center space-x-2">
-                <button onClick={handleExportJson} className="flex items-center px-3 py-1.5 border border-gray-300 dark:border-gray-600 text-sm rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
-                    <DownloadIcon/> <span className="ml-2">JSON</span>
-                </button>
-                <button onClick={handleExportMarkdown} className="flex items-center px-3 py-1.5 border border-gray-300 dark:border-gray-600 text-sm rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
-                    <DownloadIcon/> <span className="ml-2">MD</span>
-                </button>
-            </div>
-        </div>
+    const advanceState = async (nextPhase: Episode['generationPhase'], prompt: string) => {
+        setError(null);
+        let updatedEpisode = { ...episode, generationPhase: nextPhase };
+        onUpdateEpisode(updatedEpisode);
 
-      <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg mb-8">
-        <h2 className="text-3xl font-bold text-gray-900 dark:text-white">{comic.topic}</h2>
-        <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-gray-600 dark:text-gray-400">
-          <p><strong>Subject:</strong> {comic.subject}</p>
-          <p><strong>Ward:</strong> {comic.ward}</p>
-          <p><strong>Characters:</strong> {comic.characters.map(c => c.name).join(', ')}</p>
-        </div>
-        <div className="mt-4 bg-gray-100 dark:bg-gray-700/50 p-4 rounded-md">
-            <h4 className="font-semibold text-gray-800 dark:text-gray-200">Story Context</h4>
-            <p className="text-sm text-gray-600 dark:text-gray-300 mt-1 italic">"{comic.storyState.lastPanelSummary}"</p>
-        </div>
-         <div className="mt-4 bg-gray-100 dark:bg-gray-700/50 p-4 rounded-md">
-            <details>
-                <summary className="font-semibold text-gray-800 dark:text-gray-200 cursor-pointer">View Style Guide Prompt</summary>
-                <textarea readOnly className="mt-2 w-full h-48 bg-gray-50 dark:bg-gray-800 p-2 text-xs font-mono rounded-md border border-gray-200 dark:border-gray-600">{comic.styleGuidePrompt}</textarea>
-            </details>
-        </div>
-      </div>
+        try {
+            const modelResponse = await continueEpisodeGeneration(updatedEpisode, prompt);
 
-      {comic.panels.length > 0 && (
-        <div className="mb-8">
-            <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Saved Panels</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {comic.panels.map((panel, index) => (
-                    <ComicPanelPreview key={panel.id} panel={panel} panelNumber={index + 1} />
+            const newHistory = [
+                ...updatedEpisode.history,
+                { role: 'user' as const, parts: [{ text: prompt }] },
+                { role: 'model' as const, parts: [{ text: modelResponse }] },
+            ];
+
+            let finalEpisodeState: Episode = { ...updatedEpisode, history: newHistory };
+            
+            // Logic to transition to the next review phase
+            switch(nextPhase) {
+                case 'arc_proposal_pending':
+                    finalEpisodeState.generationPhase = 'arc_proposal_review';
+                    finalEpisodeState.storyArcProposal = modelResponse;
+                    break;
+                case 'episode_writing_pending':
+                    finalEpisodeState.generationPhase = 'episode_review';
+                    // Simple parsing assuming "CHARACTER DATABASE UPDATE" is the separator
+                    const scriptEndMarker = '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n📊 CHARACTER DATABASE UPDATE';
+                    const dbUpdateIndex = modelResponse.lastIndexOf(scriptEndMarker);
+                    if (dbUpdateIndex !== -1) {
+                        finalEpisodeState.fullEpisodeScript = modelResponse.substring(0, dbUpdateIndex);
+                        finalEpisodeState.characterDatabaseUpdate = modelResponse.substring(dbUpdateIndex);
+                    } else {
+                        finalEpisodeState.fullEpisodeScript = modelResponse; // Fallback
+                    }
+                    break;
+                case 'panel_breakdown_pending':
+                    finalEpisodeState.generationPhase = 'panel_breakdown_review';
+                    finalEpisodeState.panelBreakdown = modelResponse;
+                    break;
+            }
+            onUpdateEpisode(finalEpisodeState);
+        } catch (err) {
+            const errorMessage = err instanceof Error ? err.message : "An unknown error occurred.";
+            setError(errorMessage);
+            onUpdateEpisode({ ...episode, generationPhase: 'arc_proposal_review' }); // Revert to a stable state
+        }
+    };
+
+    const handleUserResponse = async () => {
+        if (!userInput.trim()) return;
+
+        let nextPhase: Episode['generationPhase'] | null = null;
+        if (episode.generationPhase === 'arc_proposal_review') {
+            nextPhase = 'episode_writing_pending';
+        } else if (episode.generationPhase === 'episode_review') {
+            if (userInput.toLowerCase().includes('generate panels')) {
+                nextPhase = 'panel_breakdown_pending';
+            }
+        }
+        
+        if (nextPhase) {
+            await advanceState(nextPhase, userInput);
+            setUserInput('');
+        }
+    };
+
+    const renderContent = () => {
+        return (
+            <div className="prose prose-sm sm:prose-base lg:prose-lg dark:prose-invert max-w-none space-y-4 whitespace-pre-wrap font-mono p-4 bg-gray-100 dark:bg-gray-900 rounded-md">
+                {episode.history.map((turn, index) => (
+                    <div key={index}>
+                        <h4 className={`font-bold ${turn.role === 'user' ? 'text-primary-600' : 'text-gray-800 dark:text-gray-200'}`}>
+                            {turn.role === 'user' ? 'You' : 'AI Writer'}
+                        </h4>
+                        <p>{turn.parts[0].text}</p>
+                    </div>
                 ))}
             </div>
-        </div>
-      )}
+        );
+    }
+    
+    const renderUserInput = () => {
+        let placeholder = "Type your feedback or approval...";
+        let buttonText = "Send";
+        if (episode.generationPhase === 'arc_proposal_review') {
+             placeholder = `Type "Write it", "Looks good", or request changes...`;
+             buttonText = "Approve & Write Episode";
+        } else if (episode.generationPhase === 'episode_review') {
+             placeholder = `Type "Generate panels" to get the comic breakdown...`;
+             buttonText = "Generate Panels";
+        }
 
-      <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
-        <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Add New Excerpt</h3>
-        <div className="space-y-4">
-          <div>
-            <label htmlFor="new-excerpt" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">New Excerpt Text</label>
-            <textarea
-              id="new-excerpt"
-              value={currentExcerpt}
-              onChange={e => setCurrentExcerpt(e.target.value)}
-              rows={4}
-              placeholder="Enter the next part of your story or medical text here..."
-              className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 text-gray-900 dark:text-gray-100"
-            />
-          </div>
-          <div className="text-right">
-              <button
-                onClick={handleGeneratePanels}
-                disabled={isGenerating || !currentExcerpt}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:bg-gray-400 dark:disabled:bg-gray-600"
-              >
-                  <SparklesIcon />
-                  <span className="ml-2">{isGenerating ? 'Generating Story...' : 'Generate Panels with AI'}</span>
-              </button>
-          </div>
-        </div>
-      </div>
-      
-      {isGenerating && (
-        <div className="mt-8 text-center text-gray-600 dark:text-gray-400">
-            <p className="text-lg">AI is crafting your story...</p>
-            <p className="text-sm">This may take a moment.</p>
-        </div>
-      )}
+        return (
+             <div className="mt-6 flex gap-4">
+                <input
+                    type="text"
+                    value={userInput}
+                    onChange={(e) => setUserInput(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleUserResponse()}
+                    placeholder={placeholder}
+                    className="flex-grow w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                />
+                <button
+                    onClick={handleUserResponse}
+                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+                >
+                    <SparklesIcon/>
+                    <span className="ml-2">{buttonText}</span>
+                </button>
+            </div>
+        );
+    }
 
-      {error && <div className="mt-8 text-center text-red-500 bg-red-100 dark:bg-red-900/50 p-4 rounded-md">{error}</div>}
+    return (
+        <div className="max-w-4xl mx-auto p-4 sm:p-8">
+            <div className="flex justify-between items-center mb-6">
+                <button onClick={onBackToLibrary} className="flex items-center text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400">
+                    <ArrowLeftIcon />
+                    <span className="ml-2">Back to Library</span>
+                </button>
+                <div className="flex gap-2">
+                    {episode.fullEpisodeScript && <button onClick={() => downloadFile(episode.fullEpisodeScript || '', `${episode.topic}_script.txt`, 'text/plain')} className="text-sm text-primary-600 dark:text-primary-400 hover:underline">Download Script</button>}
+                    {episode.panelBreakdown && <button onClick={() => downloadFile(episode.panelBreakdown || '', `${episode.topic}_panels.txt`, 'text/plain')} className="text-sm text-primary-600 dark:text-primary-400 hover:underline">Download Panels</button>}
+                </div>
+            </div>
 
-      {draftPanels.length > 0 && (
-        <div className="mt-8">
-          <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Generated Panels (Editable)</h3>
-          {draftPanels.map((panel, index) => (
-            <PanelForm key={panel.id} comic={comic} panelNumber={comic.panels.length + index + 1} initialData={panel} onSave={handleSavePanel} />
-          ))}
-          <div className="text-center mt-6">
-            <button
-                onClick={handleFinishExcerpt}
-                className="inline-flex justify-center py-3 px-8 border border-transparent shadow-sm text-base font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-            >
-                Finish Excerpt & Save Panels
-            </button>
-          </div>
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg mb-8">
+                <h2 className="text-3xl font-bold text-gray-900 dark:text-white">Episode {episode.episodeNumber}: {episode.topic}</h2>
+            </div>
+            
+            <div className="space-y-6">
+                {renderContent()}
+
+                {episode.generationPhase === 'arc_proposal_pending' && <LoadingIndicator text="Generating Story Arc Proposal..." />}
+                {episode.generationPhase === 'episode_writing_pending' && <LoadingIndicator text="Writing Full Episode..." />}
+                {episode.generationPhase === 'panel_breakdown_pending' && <LoadingIndicator text="Generating Panel Breakdown..." />}
+                
+                {error && <div className="mt-4 text-center text-red-500 bg-red-100 dark:bg-red-900/50 p-4 rounded-md">{error}</div>}
+                
+                {(episode.generationPhase === 'arc_proposal_review' || episode.generationPhase === 'episode_review') && renderUserInput()}
+            </div>
+            <div ref={bottomRef} />
         </div>
-      )}
-    </div>
-  );
+    );
 };
 
-export default PanelBuilder;
+export default EpisodeBuilder;

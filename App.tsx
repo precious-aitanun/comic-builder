@@ -1,20 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { useComics } from './hooks/useComics';
-import { Comic, View } from './types';
+import { useEpisodes } from './hooks/useComics';
+import { Episode, View } from './types';
 import { Header } from './components/Header';
-import Dashboard from './components/Dashboard';
 import Library from './components/Library';
-import PanelBuilder from './components/PanelBuilder';
+import EpisodeBuilder from './components/PanelBuilder';
 
 function App() {
-  const { comics, loading, addComic, updateComic, deleteComic, getComicById, clearAllComics } = useComics();
-  const [currentView, setCurrentView] = useState<View>('dashboard');
-  const [currentComicId, setCurrentComicId] = useState<string | null>(null);
+  const { episodes, loading, addEpisode, updateEpisode, deleteEpisode, getEpisodeById, clearAllEpisodes } = useEpisodes();
+  const [currentView, setCurrentView] = useState<View>('library');
+  const [currentEpisodeId, setCurrentEpisodeId] = useState<string | null>(null);
   const [isDarkMode, setIsDarkMode] = useState(false);
 
   useEffect(() => {
     const storedTheme = localStorage.getItem('zenith_theme');
-    if (storedTheme === 'dark') {
+    if (storedTheme === 'dark' || (storedTheme === null && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
       setIsDarkMode(true);
       document.documentElement.classList.add('dark');
     }
@@ -34,49 +33,54 @@ function App() {
     });
   };
 
-  const handleStartComic = async (newComicData: Omit<Comic, 'id' | 'storyState' | 'panels' | 'progress' | 'createdAt' | 'styleGuidePrompt'>, initialExcerpt: string) => {
-    const newComic = await addComic(newComicData, initialExcerpt);
-    setCurrentComicId(newComic.id);
+  const handleCreateEpisode = (topic: string, textbookContent: string, creativeDirection: string) => {
+    const newEpisode = addEpisode(topic, textbookContent, creativeDirection);
+    setCurrentEpisodeId(newEpisode.id);
     setCurrentView('builder');
   };
   
-  const handleContinueComic = (comicId: string) => {
-    setCurrentComicId(comicId);
+  const handleContinueEpisode = (episodeId: string) => {
+    setCurrentEpisodeId(episodeId);
     setCurrentView('builder');
   };
 
   const handleNavigate = (view: View) => {
     if (view !== 'builder') {
-      setCurrentComicId(null);
+      setCurrentEpisodeId(null);
     }
     setCurrentView(view);
   }
 
-  const currentComic = getComicById(currentComicId);
+  const currentEpisode = getEpisodeById(currentEpisodeId);
 
   return (
-    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors duration-300">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors duration-300">
       <Header 
         currentView={currentView} 
         onNavigate={handleNavigate}
         isDarkMode={isDarkMode}
         toggleDarkMode={toggleDarkMode}
-        clearAllData={clearAllComics}
+        clearAllData={clearAllEpisodes}
       />
       <main>
         {loading ? (
-          <div className="flex justify-center items-center h-64">Loading...</div>
+          <div className="flex justify-center items-center h-64">Loading Episodes...</div>
         ) : (
           <>
-            {currentView === 'dashboard' && <Dashboard onStartComic={handleStartComic} />}
-            {currentView === 'library' && <Library comics={comics} onContinue={handleContinueComic} onDelete={deleteComic} onNavigateToDashboard={() => setCurrentView('dashboard')} />}
-            {currentView === 'builder' && currentComic && (
-              <PanelBuilder 
-                comic={currentComic} 
-                onUpdateComic={updateComic} 
+            {currentView === 'library' && <Library episodes={episodes} onContinue={handleContinueEpisode} onDelete={deleteEpisode} onCreateEpisode={handleCreateEpisode} />}
+            {currentView === 'builder' && currentEpisode && (
+              <EpisodeBuilder 
+                episode={currentEpisode} 
+                onUpdateEpisode={updateEpisode} 
                 onBackToLibrary={() => handleNavigate('library')}
               />
             )}
+             {currentView === 'builder' && !currentEpisode && (
+                <div className="text-center p-8">
+                    <h2 className="text-2xl font-bold">No episode selected.</h2>
+                    <button onClick={() => handleNavigate('library')} className="mt-4 px-4 py-2 bg-primary-600 text-white rounded-md">Go to Library</button>
+                </div>
+             )}
           </>
         )}
       </main>

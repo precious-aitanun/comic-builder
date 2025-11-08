@@ -1,23 +1,22 @@
+import { Episode } from '../types';
 
-import { Comic } from '../types';
+const STORAGE_KEY = 'zenith_episodes';
 
-const STORAGE_KEY = 'zenith_comics';
-
-export const getComics = (): Comic[] => {
+export const getEpisodes = (): Episode[] => {
   try {
-    const comicsJson = localStorage.getItem(STORAGE_KEY);
-    return comicsJson ? JSON.parse(comicsJson) : [];
+    const episodesJson = localStorage.getItem(STORAGE_KEY);
+    return episodesJson ? JSON.parse(episodesJson) : [];
   } catch (error) {
-    console.error('Error reading comics from localStorage', error);
+    console.error('Error reading episodes from localStorage', error);
     return [];
   }
 };
 
-export const saveComics = (comics: Comic[]): void => {
+export const saveEpisodes = (episodes: Episode[]): void => {
   try {
-    const comicsJson = JSON.stringify(comics);
-    localStorage.setItem(STORAGE_KEY, comicsJson);
+    const episodesJson = JSON.stringify(episodes);
+    localStorage.setItem(STORAGE_KEY, episodesJson);
   } catch (error) {
-    console.error('Error saving comics to localStorage', error);
+    console.error('Error saving episodes to localStorage', error);
   }
 };

@@ -1,5 +1,5 @@
 {
-  "name": "Zenith Comic Builder",
-  "description": "A local tool for creating serialized medical-education comics panel-by-panel, with AI-powered image generation and editing capabilities using Gemini.",
+  "name": "Zenith Teaching Hospital: Medical Drama Generator",
+  "description": "An AI-powered tool to transform medical textbook content into serialized, character-driven medical drama episodes in the style of Grey's Anatomy.",
   "requestFramePermissions": []
 }

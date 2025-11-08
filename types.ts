@@ -1,44 +1,29 @@
-export interface Character {
-  name: string;
-  description: string;
-}
+export type View = 'library' | 'builder';
 
-export interface DialogueLine {
-  character: string;
-  line: string;
-}
+export type GenerationPhase = 
+  | 'start' 
+  | 'arc_proposal_pending'
+  | 'arc_proposal_review'
+  | 'episode_writing_pending'
+  | 'episode_review'
+  | 'panel_breakdown_pending'
+  | 'panel_breakdown_review'
+  | 'complete';
 
-export interface Panel {
+export interface Episode {
   id: string;
-  observation: string;
-  reasoning: string;
-  action: string;
-  expectation: string;
-  visualDescription: string;
-  caption: string;
-  dialogue: DialogueLine[];
-  suggestions: string;
-  imageGenerationPrompt?: string;
-}
-
-export interface StoryState {
-  lastPanelSummary: string;
-  completedExcerpts: number;
-}
-
-export interface Comic {
-  id: string;
-  subject: string;
+  episodeNumber: number;
   topic: string;
-  ward: string;
-  characters: Character[];
-  styleGuidePrompt: string;
-  storyState: StoryState;
-  panels: Panel[];
-  progress: number;
   createdAt: string;
+  generationPhase: GenerationPhase;
+
+  // AI interaction history
+  history: { role: 'user' | 'model'; parts: { text: string }[] }[];
+
+  // Stored artifacts from the conversation
+  textbookContent?: string;
+  storyArcProposal?: string;
+  fullEpisodeScript?: string;
+  characterDatabaseUpdate?: string;
+  panelBreakdown?: string;
 }
-
-export type View = 'dashboard' | 'library' | 'builder';
-
-export type AIPanelData = Omit<Panel, 'id' | 'imageGenerationPrompt'>;
