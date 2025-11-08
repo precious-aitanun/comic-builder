@@ -347,7 +347,7 @@ CHARACTER NAME: (action or emotion in parentheses) Dialogue here.
 
 
 export const continueEpisodeGeneration = async (episode: Episode, userPrompt: string): Promise<string> => {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = new GoogleGenAI({ apiKey: import.meta.env.API_KEY });
 
     // A powerful model is needed for this complex task.
     const chat = ai.chats.create({
